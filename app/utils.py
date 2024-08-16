@@ -4,36 +4,35 @@ from firebase_admin import messaging
 from sensitive import ALI_GO_API_KEY
 
 
-def getSenderInfo(userToken):
-    try:
-        url = "https://sm.simpass.co.kr/api/agent/userInfo"
-        # url = "http://192.168.0.251:8091/api/agent/userInfo"
+def get_user_info(access_token: str):
+    url = "https://sm.simpass.co.kr/api/agent/userInfo"
+    headers = {"Authorization": f"Bearer {access_token}"}
 
-        headers = {"Authorization": "Bearer " + userToken}
-        response = requests.get(url=url, headers=headers)
-        print(response)
-        if response.status_code == 200:
-            decodedResponse = response.json()
-            data = decodedResponse["data"]["info"]
-            # print(decodedResponse)
-            return {
-                "username": data["username"],
-                "roles": data.get("strRoles", []),
-                "name": data["name"],
-                "agent_codes": data.get("agent_cd", []),
-            }
-        else:
-            # raise SenderInfoError(f"Failed to get sender info. Status code: {response.status_code}")
-            raise "User info fetch error"
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise ValueError(f"Authentication failed. Status code: {response.status_code}")
 
-    except Exception as e:
-        raise e
+    data = response.json()
+    info = data["data"]["info"]
+
+    return {
+        "username": info["username"],
+        "roles": info.get("strRoles", []),
+        "name": info["name"],
+        "agent_codes": info.get("agent_cd", []),
+        "is_retailer": "ROLE_AGENCY" in info.get("strRoles", []),
+    }
+
+    # return {
+    #     "username": "SM00001",
+    #     "roles": ["ROLE_AGENCY"],
+    #     "name": "심패스",
+    #     "agent_codes": ["SJ"],
+    #     "is_retailer": True,
+    # }
 
 
-def sendNotification(fcmToken, title, body, chat_room_id):
-
-    pass
-
+def send_notification(fcmToken, title, body, chat_room_id):
     message = messaging.Message(
         notification=messaging.Notification(
             title=title,
