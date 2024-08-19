@@ -16,31 +16,27 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
     try:
         user_info = get_user_info(access_token)
         is_retailer = user_info["is_retailer"]
-        print(user_info)
+        # print(user_info)
+
     except Exception as e:
         await websocket.close(code=1008, reason=str(e))
-        # raise HTTPException(status_code=401, detail=str(e))
         return
 
     identifiers = [user_info["username"]] if is_retailer else user_info["agent_codes"]
     for identifier in identifiers:
         await manager.connect(websocket, identifier)
 
-    # return fll chat rooms total_unread_counts for retailer and admin
-    total_unread_count = 0
-    search_field = "partner_code" if is_retailer else "agent_code"
-    rooms_ref = database.collection("chat_rooms").where(filter=FieldFilter(search_field, "in", identifiers)).get()
-    for room_ref in rooms_ref:
-        room = room_ref.to_dict()
-        total_unread_count += room.get("partner_unread_count", 0)
-    print(f"total count: {total_unread_count}")
-    await manager.active_connections[identifier].send_json({"type": "total_count", "total_unread_count": total_unread_count})
+    # sending total count when initial connectin established
+    total_count = get_total_unread_count(is_retailer, identifiers)
+    await websocket.send_json({"type": "total_count", "total_unread_count": total_count})
 
     try:
         while True:
             response = await websocket.receive_json()
-            print(response)
+            # print(response)
             action = response.get("action")
+
+            print("connection active")
 
             # disconnnect emitted from client side
             if action == "disconnect":
@@ -53,7 +49,10 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                     partner_code = user_info.get("username")
                     partner_name = user_info.get("name")
 
-                    # chat_room_ref = database.collection("chat_rooms").document(room_id)
+                    if not agent_code or not partner_code:
+                        manager.disconnect(identifier)
+                        return
+
                     chat_rooms_ref = (
                         database.collection("chat_rooms")
                         .where(filter=FieldFilter("partner_code", "==", partner_code))
@@ -78,33 +77,52 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                         )
                         room_id = doc_ref.id
 
-                    chats = getRoomChats(room_id)
-                    print(chats)
-
+                    chats = get_room_chats(room_id)
+                    # print(chats)
                     await websocket.send_json({"type": "chats", "chats": chats, "room_id": room_id})
 
+                    # when user joins a chatroom, unread_count is reset to 0
                     # chat_room_ref = database.collection("chat_rooms").document(room_id)
                     # chat_room_ref.update({"partner_unread_count": 0})
 
                 else:
                     room_id = response.get("roomId")
-                    print(room_id)
-                    chats = getRoomChats(room_id)
+                    chats = get_room_chats(room_id)
                     await websocket.send_json({"type": "chats", "chats": chats})
 
-                    # chat_room_ref = database.collection("chat_rooms").document(room_id)
-                    # chat_room_ref.update({"agent_unread_count": 0})
+            if action == "reset_room_unread_count":
+                room_id = response.get("roomId")
+                print(room_id)
+
+                chat_room_ref = database.collection("chat_rooms").document(room_id)
+
+                update_field = "partner_unread_count" if is_retailer else "agent_unread_count"
+                chat_room_ref.update({update_field: 0})
+
+                # whenever room unread count reset total unread count also reset
+                total_count = get_total_unread_count(is_retailer, identifiers)
+                await manager.send_json_to_identifiers(content={"type": "total_count", "total_unread_count": total_count}, identifiers=identifiers)
 
             # when partner sends a new message
             if action == "new_message":
                 room_id = response.get("roomId")
+
                 text = response["text"]
                 attachment_paths = response["attachmentPaths"]
 
+                # first getting room details by room id and then creating a new message
+                chat_room_ref = database.collection("chat_rooms").document(room_id)
+                room_details = chat_room_ref.get().to_dict()
+
+                print(room_details)
+
+                agent_code = room_details["agent_code"]
+                partner_code = room_details["partner_code"]
+
                 new_chat = {
-                    "room_id": room_id,  # unique firestore id
-                    "sender": partner_code,  # createdBy
-                    "receiver": agent_code,  # admin code IK, SJ
+                    "room_id": room_id,
+                    "sender": partner_code if is_retailer else agent_code,
+                    "receiver": agent_code if is_retailer else partner_code,
                     "is_retailer": is_retailer,
                     "timestamp": datetime.datetime.now(datetime.timezone.utc),
                     "text": text,
@@ -114,14 +132,22 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 database.collection("chats").add(new_chat)
                 new_chat["timestamp"] = new_chat["timestamp"].isoformat()
 
-                await manager.active_connections[identifier].send_json({"type": "new_chat", "new_chat": new_chat})
+                # emitting new chat to both sender and receiver
+                await manager.send_json_to_identifiers(content={"type": "new_chat", "new_chat": new_chat}, identifiers=[partner_code, agent_code])
 
-                # update agent unread count when partner sends a message
-                chat_room_ref = database.collection("chat_rooms").document(room_id)
+                # update unread count of receiver
+                update_field = "agent_unread_count" if is_retailer else "partner_unread_count"
+                chat_room_ref.update({update_field: firestore.Increment(1)})
 
-                print(chat_room_ref.get().to_dict())
-
-                # chat_room_ref.update({"agent_unread_count": firestore.Increment(1)})
+                # after each new message emit total_count
+                await manager.send_json_to_identifier(
+                    content={"type": "total_count", "total_unread_count": room_details["partner_unread_count"]},
+                    identifier=room_details["partner_code"],
+                )
+                await manager.send_json_to_identifier(
+                    content={"type": "total_count", "total_unread_count": room_details["agent_unread_count"]},
+                    identifier=room_details["agent_code"],
+                )
 
             # if admin
             if action == "get_chat_rooms":
@@ -147,7 +173,7 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
         await manager.broadcast(f"User {user_info['name']} left the chat")
 
 
-def getRoomChats(room_id: str):
+def get_room_chats(room_id: str):
     chats_ref = (
         database.collection("chats")
         .where(filter=FieldFilter("room_id", "==", room_id))
@@ -165,3 +191,20 @@ def getRoomChats(room_id: str):
 
     # print(chats)
     return chats
+
+
+def get_total_unread_count(is_retailer: bool, identifiers: str):
+    # return fll chat rooms total_unread_counts of given identifiers (agent codes or partner code)
+    total_unread_count = 0
+
+    search_field = "partner_code" if is_retailer else "agent_code"
+    find_field = "partner_unread_count" if is_retailer else "agent_unread_count"
+
+    rooms_ref = database.collection("chat_rooms").where(filter=FieldFilter(search_field, "in", identifiers)).get()
+    for room_ref in rooms_ref:
+        room = room_ref.to_dict()
+        total_unread_count += room.get(find_field, 0)
+
+    print(total_unread_count)
+
+    return total_unread_count
