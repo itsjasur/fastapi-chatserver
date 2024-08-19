@@ -22,12 +22,11 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
         await websocket.close(code=1008, reason=str(e))
         return
 
-    identifiers = [user_info["username"]] if is_retailer else user_info["agent_codes"]
-    for identifier in identifiers:
-        await manager.connect(websocket, identifier)
+    identifier = user_info["username"] if is_retailer else user_info["agent_code"]
+    await manager.connect(websocket, identifier)
 
     # sending total count when initial connectin established
-    total_count = get_total_unread_count(is_retailer, identifiers)
+    total_count = get_total_unread_count(is_retailer, identifier)
     await websocket.send_json({"type": "total_count", "total_unread_count": total_count})
 
     try:
@@ -35,7 +34,6 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
             response = await websocket.receive_json()
             # print(response)
             action = response.get("action")
-
             print("connection active")
 
             # disconnnect emitted from client side
@@ -66,28 +64,24 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
 
                     # creating or updating a room if room not found
                     else:
-                        timestampt, doc_ref = database.collection("chat_rooms").add(
-                            {
-                                "agent_code": agent_code,
-                                "partner_code": partner_code,
-                                "partner_name": partner_name,
-                                "agent_unread_count": 0,
-                                "partner_unread_count": 0,
-                            },
-                        )
-                        room_id = doc_ref.id
+                        room_id = await add_new_room(agent_code=agent_code, partner_code=partner_code, partner_name=partner_name)
 
                     chats = get_room_chats(room_id)
-                    # print(chats)
                     await websocket.send_json({"type": "chats", "chats": chats, "room_id": room_id})
 
-                    # when user joins a chatroom, unread_count is reset to 0
-                    # chat_room_ref = database.collection("chat_rooms").document(room_id)
-                    # chat_room_ref.update({"partner_unread_count": 0})
-
                 else:
-                    room_id = response.get("roomId")
+                    room_id = response.get("roomId", None)
+
+                    # if room_id not provided, create a new room
+                    if room_id is None:
+                        agent_code = user_info.get("agent_code")
+                        partner_code = response.get("partner_code")
+                        partner_name = response.get("name")
+
+                        room_id = await add_new_room(agent_code=agent_code, partner_code=partner_code, partner_name=partner_name)
+
                     chats = get_room_chats(room_id)
+
                     await websocket.send_json({"type": "chats", "chats": chats})
 
             if action == "reset_room_unread_count":
@@ -99,9 +93,20 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 update_field = "partner_unread_count" if is_retailer else "agent_unread_count"
                 chat_room_ref.update({update_field: 0})
 
+                # emitting room unread_count
+                chat_room = chat_room_ref.get().to_dict()
+
+                # emit room modified after each new chat
+                await manager.send_json_to_identifier(
+                    content={"type": "room_modified", "modified_room": chat_room}, identifier=chat_room["agent_code"]
+                )
+                await manager.send_json_to_identifier(
+                    content={"type": "room_modified", "modified_room": chat_room}, identifier=chat_room["partner_code"]
+                )
+
                 # whenever room unread count reset total unread count also reset
-                total_count = get_total_unread_count(is_retailer, identifiers)
-                await manager.send_json_to_identifiers(content={"type": "total_count", "total_unread_count": total_count}, identifiers=identifiers)
+                total_count = get_total_unread_count(is_retailer, identifier)
+                await manager.send_json_to_identifier(content={"type": "total_count", "total_unread_count": total_count}, identifier=identifier)
 
             # when partner sends a new message
             if action == "new_message":
@@ -133,28 +138,36 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 new_chat["timestamp"] = new_chat["timestamp"].isoformat()
 
                 # emitting new chat to both sender and receiver
-                await manager.send_json_to_identifiers(content={"type": "new_chat", "new_chat": new_chat}, identifiers=[partner_code, agent_code])
+                await manager.send_json_to_identifier(content={"type": "new_chat", "new_chat": new_chat}, identifier=partner_code)
+                await manager.send_json_to_identifier(content={"type": "new_chat", "new_chat": new_chat}, identifier=agent_code)
 
                 # update unread count of receiver
                 update_field = "agent_unread_count" if is_retailer else "partner_unread_count"
                 chat_room_ref.update({update_field: firestore.Increment(1)})
 
+                # need to get room details again after changes
+                chat_room = chat_room_ref.get().to_dict()
+                print(chat_room)
+
                 # after each new message emit total_count
                 await manager.send_json_to_identifier(
-                    content={"type": "total_count", "total_unread_count": room_details["partner_unread_count"]},
-                    identifier=room_details["partner_code"],
+                    content={"type": "total_count", "total_unread_count": chat_room["partner_unread_count"]}, identifier=partner_code
                 )
+
                 await manager.send_json_to_identifier(
-                    content={"type": "total_count", "total_unread_count": room_details["agent_unread_count"]},
-                    identifier=room_details["agent_code"],
+                    content={"type": "total_count", "total_unread_count": chat_room["agent_unread_count"]}, identifier=agent_code
                 )
+
+                # emit room modified after each new chat
+                await manager.send_json_to_identifier(content={"type": "room_modified", "modified_room": chat_room}, identifier=agent_code)
+                await manager.send_json_to_identifier(content={"type": "room_modified", "modified_room": chat_room}, identifier=partner_code)
 
             # if admin
             if action == "get_chat_rooms":
                 rooms = []
                 search_text = response.get("searchText", None)
 
-                rooms_ref = database.collection("chat_rooms").where(filter=FieldFilter("agent_code", "in", identifiers)).get()
+                rooms_ref = database.collection("chat_rooms").where(filter=FieldFilter("agent_code", "==", identifier)).get()
 
                 for room_ref in rooms_ref:
                     room_id = room_ref.id
@@ -168,9 +181,8 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 await manager.active_connections[identifier].send_json({"type": "chat_rooms", "rooms": rooms})
 
     except WebSocketDisconnect:
-        for identifier in identifiers:
-            manager.disconnect(identifier)
-        await manager.broadcast(f"User {user_info['name']} left the chat")
+        manager.disconnect(identifier)
+        # await manager.broadcast(f"User {user_info['name']} left the chat")
 
 
 def get_room_chats(room_id: str):
@@ -193,14 +205,14 @@ def get_room_chats(room_id: str):
     return chats
 
 
-def get_total_unread_count(is_retailer: bool, identifiers: str):
-    # return fll chat rooms total_unread_counts of given identifiers (agent codes or partner code)
+def get_total_unread_count(is_retailer: bool, identifier: str):
+    # return fll chat rooms total_unread_counts of given identifier (agent code or partner code)
     total_unread_count = 0
 
     search_field = "partner_code" if is_retailer else "agent_code"
     find_field = "partner_unread_count" if is_retailer else "agent_unread_count"
 
-    rooms_ref = database.collection("chat_rooms").where(filter=FieldFilter(search_field, "in", identifiers)).get()
+    rooms_ref = database.collection("chat_rooms").where(filter=FieldFilter(search_field, "==", identifier)).get()
     for room_ref in rooms_ref:
         room = room_ref.to_dict()
         total_unread_count += room.get(find_field, 0)
@@ -208,3 +220,29 @@ def get_total_unread_count(is_retailer: bool, identifiers: str):
     print(total_unread_count)
 
     return total_unread_count
+
+
+async def add_new_room(agent_code: str, partner_code: str, partner_name: str = None) -> str:
+    # creates a new document reference without adding data
+    doc_ref = database.collection("chat_rooms").document()
+    # get the generated ID
+    room_id = doc_ref.id
+
+    # create the new room dictionary with the room_id
+    new_room = {
+        "agent_code": agent_code,
+        "partner_code": partner_code,
+        "partner_name": partner_name,
+        "agent_unread_count": 0,
+        "partner_unread_count": 0,
+        "room_id": room_id,
+    }
+
+    # set the data for the document
+    doc_ref.set(new_room)
+
+    # emitting new room to both sender and receiver
+    await manager.send_json_to_identifier(content={"type": "room_added", "new_room": new_room}, identifier=partner_code)
+    await manager.send_json_to_identifier(content={"type": "room_added", "new_room": new_room}, identifier=agent_code)
+
+    return room_id

@@ -20,11 +20,6 @@ class ConnectionManager:
         if identifier in self.active_connections:
             await self.active_connections[identifier].send_text(message)
 
-    async def send_json_to_identifiers(self, content: dict, identifiers: list[str]):
-        for identifier in identifiers:
-            if identifier in self.active_connections:
-                await self.active_connections[identifier].send_json(content)
-
     async def send_json_to_identifier(self, content: dict, identifier: str):
         if identifier in self.active_connections:
             await self.active_connections[identifier].send_json(content)

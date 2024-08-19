@@ -19,7 +19,7 @@ def get_user_info(access_token: str):
         "username": info["username"],
         "roles": info.get("strRoles", []),
         "name": info["name"],
-        "agent_codes": info.get("agent_cd", []),
+        "agent_code": info.get("agent_cd", [None])[0],
         "is_retailer": "ROLE_AGENCY" in info.get("strRoles", []),
     }
 
