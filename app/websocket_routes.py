@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, WebSocket
 from fastapi.websockets import WebSocketDisconnect
 from websocket_manager import manager
-from app.utils import get_user_info
+from app.utils import get_user_info, send_multiple_notifications
 from firebase_instance import database
 from google.cloud.firestore_v1.base_query import FieldFilter
 from firebase_admin import firestore
@@ -36,6 +36,14 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
             action = response.get("action")
             print("connection active")
 
+            if action == "update_fcm_token":
+                print("update_fcm_token called!")
+                fcm_token = response.get("fcmToken", None)
+                agent_ref = database.collection("users").document(identifier)
+                agent_ref.set({"fcm_tokens": firestore.ArrayUnion([fcm_token])}, merge=True)
+
+                print(fcm_token)
+
             # disconnnect emitted from client side
             if action == "disconnect":
                 manager.disconnect(identifier)
@@ -66,23 +74,30 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                     else:
                         room_id = await add_new_room(agent_code=agent_code, partner_code=partner_code, partner_name=partner_name)
 
-                    chats = get_room_chats(room_id)
-                    await websocket.send_json({"type": "chats", "chats": chats, "room_id": room_id})
-
                 else:
+                    print("join room called")
                     room_id = response.get("roomId", None)
-
                     # if room_id not provided, create a new room
                     if room_id is None:
-                        agent_code = user_info.get("agent_code")
-                        partner_code = response.get("partner_code")
-                        partner_name = response.get("name")
+                        partner_code = response.get("partnerCode", None)
+                        partner_name = response.get("partnerName", None)
 
-                        room_id = await add_new_room(agent_code=agent_code, partner_code=partner_code, partner_name=partner_name)
+                        # if roomid is None, check if parterCode has cahtroom with agent_code
+                        chat_rooms_ref = (
+                            database.collection("chat_rooms")
+                            .where(filter=FieldFilter("partner_code", "==", partner_code))
+                            .where(filter=FieldFilter("agent_code", "==", identifier))
+                            .limit(1)
+                            .get()
+                        )
 
-                    chats = get_room_chats(room_id)
+                        if len(chat_rooms_ref) > 0:
+                            room_id = chat_rooms_ref[0].id
+                        else:
+                            room_id = await add_new_room(agent_code=identifier, partner_code=partner_code, partner_name=partner_name)
 
-                    await websocket.send_json({"type": "chats", "chats": chats})
+                chats = get_room_chats(room_id)
+                await websocket.send_json({"type": "chats", "chats": chats, "room_id": room_id})
 
             if action == "reset_room_unread_count":
                 room_id = response.get("roomId")
@@ -161,6 +176,34 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 # emit room modified after each new chat
                 await manager.send_json_to_identifier(content={"type": "room_modified", "modified_room": chat_room}, identifier=agent_code)
                 await manager.send_json_to_identifier(content={"type": "room_modified", "modified_room": chat_room}, identifier=partner_code)
+
+                # notification is sent here
+                if agent_code is not None:
+                    # when partner sends message, agent receives notification
+                    agent_ref = database.collection("users").document(agent_code).get()
+                    if agent_ref.exists:
+                        fcm_tokens = agent_ref.to_dict()["fcm_tokens"]
+                        name = user_info["name"]
+                        if len(fcm_tokens) > 0:
+                            send_multiple_notifications(
+                                fcm_tokens=fcm_tokens,
+                                title=f"{name}이 메시지를 보냈어요!",
+                                body=text,
+                                chat_room_id=room_id,
+                            )
+                # notification is sent here
+                if partner_code is not None:
+                    # when agent sends message, partner receives notification
+                    partner_ref = database.collection("users").document(partner_code).get()
+                    if partner_ref.exists:
+                        fcm_tokens = partner_ref.to_dict()["fcm_tokens"]
+                        if len(fcm_tokens) > 0:
+                            send_multiple_notifications(
+                                fcm_tokens=fcm_tokens,
+                                title=f"메시지를 받았습니다",
+                                body=text,
+                                chat_room_id=room_id,
+                            )
 
             # if admin
             if action == "get_chat_rooms":

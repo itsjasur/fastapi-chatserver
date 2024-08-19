@@ -6,8 +6,7 @@ import uuid
 from app.models import SMSData
 from app.utils import send_single_sms
 from firebase_instance import database, bucket
-
-# from firebase_admin import storage
+from firebase_admin import messaging
 
 
 router = APIRouter()
@@ -151,3 +150,23 @@ async def check_sign(request: Request):
                 )
 
     return fail_response
+
+
+def send_multiple_notifications(fcm_tokens, title, body, chat_room_id):
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+        data={
+            # "room": room,
+            "chat_room_id": chat_room_id,
+        },
+        tokens=fcm_tokens,
+    )
+
+    try:
+        response = messaging.send_multicast(message)
+        return f"Successfully sent messages: {response.success_count} successful, {response.failure_count} failed"
+    except Exception as e:
+        return f"Error sending messages: {e}"
