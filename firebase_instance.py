@@ -1,9 +1,10 @@
 import firebase_admin
 from firebase_admin import credentials, storage, firestore
 
-cred = credentials.Certificate("simpassplatform-firebase-adminsdk-3tgy6-8d064c59cb.json")
+from sensitive import FIREBASE_BUCKET
 
-firebase_admin.initialize_app(cred, {"storageBucket": "simpassplatform.appspot.com"})
+cred = credentials.Certificate("firebase_keys.json")
+firebase_admin.initialize_app(cred, {"storageBucket": FIREBASE_BUCKET})
 
 
 database = firestore.client()
