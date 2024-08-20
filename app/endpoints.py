@@ -95,7 +95,7 @@ async def save_sign(request: Request):
         }
     )
 
-    if key is None or key is "":
+    if key is None or key == "":
         return fail_response
 
     sign_seal_data_ref = database.collection("sign_data").document(key)
