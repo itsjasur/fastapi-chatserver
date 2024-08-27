@@ -12,11 +12,16 @@ def get_user_info(access_token: str):
     data = response.json()
     info = data["data"]["info"]
 
+    agent_codes = info.get("agent_cd", [None])
+    agent_code = None
+    if agent_codes is not None and len(agent_codes) > 0:
+        agent_code = agent_codes[0]
+
     return {
         "username": info["username"],
         "roles": info.get("strRoles", []),
         "name": info["name"],
-        "agent_code": info.get("agent_cd", [None])[0],
+        "agent_code": agent_code,
         "is_retailer": "ROLE_AGENCY" in info.get("strRoles", []),
     }
 

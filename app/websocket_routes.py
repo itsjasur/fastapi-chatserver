@@ -16,9 +16,10 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
     try:
         user_info = get_user_info(access_token)
         is_retailer = user_info["is_retailer"]
-        # print(user_info)
+    # print(user_info)
 
     except Exception as e:
+        print(e)
         await websocket.close(code=1008, reason=str(e))
         return
 
