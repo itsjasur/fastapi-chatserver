@@ -1,14 +1,11 @@
 import requests
 from firebase_admin import messaging
-
-from sensitive import ALI_GO_API_KEY
+from sensitive import ALI_GO_API_KEY, API_SERVER_URL
 
 
 def get_user_info(access_token: str):
-    url = "https://sm.simpass.co.kr/api/agent/userInfo"
     headers = {"Authorization": f"Bearer {access_token}"}
-
-    response = requests.get(url, headers=headers)
+    response = requests.get(API_SERVER_URL, headers=headers)
     if response.status_code != 200:
         raise ValueError(f"Authentication failed. Status code: {response.status_code}")
 

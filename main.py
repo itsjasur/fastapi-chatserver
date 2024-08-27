@@ -28,6 +28,8 @@ app.include_router(api_router)
 app.include_router(websocket_router)
 
 # this makes the project run as python main.py instead of uvicorn main:app --reload
+# uvicorn main:app --reload --host 0.0.0.0 --port 8080
+
 if __name__ == "__main__":
     import uvicorn
 
