@@ -225,7 +225,9 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 await manager.active_connections[identifier].send_json({"type": "chat_rooms", "rooms": rooms})
 
     except WebSocketDisconnect:
-        manager.disconnect(identifier)
+        # manager.disconnect(identifier)
+        manager.disconnect(websocket, identifier)
+
         # await manager.broadcast(f"User {user_info['name']} left the chat")
 
 
