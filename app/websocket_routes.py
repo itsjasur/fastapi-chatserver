@@ -222,7 +222,9 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 if search_text and search_text not in ["", " "] != "":
                     rooms = [room for room in rooms if search_text.lower() in room["partner_name"].lower()]
 
-                await manager.active_connections[identifier].send_json({"type": "chat_rooms", "rooms": rooms})
+                # ####
+                # await manager.active_connections[identifier].send_json({"type": "chat_rooms", "rooms": rooms})
+                await manager.send_json_to_identifier({"type": "chat_rooms", "rooms": rooms}, identifier)
 
     except WebSocketDisconnect:
         # manager.disconnect(identifier)
