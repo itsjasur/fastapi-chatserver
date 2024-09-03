@@ -134,8 +134,7 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 # first getting room details by room id and then creating a new message
                 chat_room_ref = database.collection("chat_rooms").document(room_id)
                 room_details = chat_room_ref.get().to_dict()
-
-                print(room_details)
+                # print(room_details)
 
                 agent_code = room_details["agent_code"]
                 partner_code = room_details["partner_code"]
@@ -163,7 +162,7 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
 
                 # need to get room details again after changes
                 chat_room = chat_room_ref.get().to_dict()
-                print(chat_room)
+                # print(chat_room)
 
                 # after each new message emit total_count
                 await manager.send_json_to_identifier(
@@ -178,33 +177,36 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 await manager.send_json_to_identifier(content={"type": "room_modified", "modified_room": chat_room}, identifier=agent_code)
                 await manager.send_json_to_identifier(content={"type": "room_modified", "modified_room": chat_room}, identifier=partner_code)
 
-                # notification is sent here
-                if agent_code is not None:
-                    # when partner sends message, agent receives notification
-                    agent_ref = database.collection("users").document(agent_code).get()
-                    if agent_ref.exists:
-                        fcm_tokens = agent_ref.to_dict()["fcm_tokens"]
-                        name = user_info["name"]
-                        if len(fcm_tokens) > 0:
-                            send_multiple_notifications(
-                                fcm_tokens=fcm_tokens,
-                                title=f"{name}이 메시지를 보냈어요!",
-                                body=text,
-                                chat_room_id=room_id,
-                            )
-                # notification is sent here
-                if partner_code is not None:
-                    # when agent sends message, partner receives notification
-                    partner_ref = database.collection("users").document(partner_code).get()
-                    if partner_ref.exists:
-                        fcm_tokens = partner_ref.to_dict()["fcm_tokens"]
-                        if len(fcm_tokens) > 0:
-                            send_multiple_notifications(
-                                fcm_tokens=fcm_tokens,
-                                title=f"메시지를 받았습니다",
-                                body=text,
-                                chat_room_id=room_id,
-                            )
+                if is_retailer:
+                    # notification is sent here
+                    if agent_code is not None:
+                        # when partner sends message, agent receives notification
+                        agent_ref = database.collection("users").document(agent_code).get()
+                        if agent_ref.exists:
+                            fcm_tokens = agent_ref.to_dict()["fcm_tokens"]
+                            name = user_info["name"]
+                            if len(fcm_tokens) > 0:
+                                send_multiple_notifications(
+                                    fcm_tokens=fcm_tokens,
+                                    title=f"{name}이 메시지를 보냈어요!",
+                                    body=text,
+                                    chat_room_id=room_id,
+                                )
+
+                else:
+                    # notification is sent here
+                    if partner_code is not None:
+                        # when agent sends message, partner receives notification
+                        partner_ref = database.collection("users").document(partner_code).get()
+                        if partner_ref.exists:
+                            fcm_tokens = partner_ref.to_dict()["fcm_tokens"]
+                            if len(fcm_tokens) > 0:
+                                send_multiple_notifications(
+                                    fcm_tokens=fcm_tokens,
+                                    title=f"메시지를 받았습니다",
+                                    body=text,
+                                    chat_room_id=room_id,
+                                )
 
             # if admin
             if action == "get_chat_rooms":
@@ -222,14 +224,10 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 if search_text and search_text not in ["", " "] != "":
                     rooms = [room for room in rooms if search_text.lower() in room["partner_name"].lower()]
 
-                # ####
-                # await manager.active_connections[identifier].send_json({"type": "chat_rooms", "rooms": rooms})
                 await manager.send_json_to_identifier({"type": "chat_rooms", "rooms": rooms}, identifier)
 
     except WebSocketDisconnect:
-        # manager.disconnect(identifier)
         manager.disconnect(websocket, identifier)
-
         # await manager.broadcast(f"User {user_info['name']} left the chat")
 
 
