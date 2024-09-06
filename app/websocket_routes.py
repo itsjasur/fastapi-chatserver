@@ -74,7 +74,7 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
 
                 await manager.send_json_to_identifier({"type": "chat_rooms", "rooms": rooms}, identifier)
 
-            if action == "get_room_info":
+            if action == "join_new_room":
                 if is_retailer:  # partner
                     agent_code = response.get("agentCode")
                     partner_code = user_info.get("username")
@@ -100,20 +100,20 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 if len(chat_rooms_ref) > 0:
                     # room_id = chat_rooms_ref[0].id
                     room_info = chat_rooms_ref[0].to_dict()
+                    room_id = chat_rooms_ref[0].id
 
                 # creating a room if room not found
                 else:
-                    room_info = await add_new_room(agent_code=agent_code, partner_code=partner_code, partner_name=partner_name)
+                    room_id, room_info = await add_new_room(agent_code=agent_code, partner_code=partner_code, partner_name=partner_name)
 
-                # print(room_info.to_dict())
-
-                await websocket.send_json({"type": "room_info", "room_info": room_info})
+                chats = get_room_chats(room_id)
+                await websocket.send_json({"type": "room_chats", "chats": chats, "room_id": room_id, "room_info": room_info})
 
             if action == "join_room":
                 room_id = response.get("roomId", None)
 
                 chats = get_room_chats(room_id)
-                await websocket.send_json({"type": "room_chats", "chats": chats, "room_id": room_id})
+                await websocket.send_json({"type": "room_chats", "chats": chats, "room_id": room_id, "room_info": None})
 
             if action == "reset_room_unread_count":
                 room_id = response.get("roomId")
@@ -295,4 +295,5 @@ async def add_new_room(agent_code: str, partner_code: str, partner_name: str = N
     await manager.send_json_to_identifier(content={"type": "room_added", "new_room": new_room}, identifier=partner_code)
     await manager.send_json_to_identifier(content={"type": "room_added", "new_room": new_room}, identifier=agent_code)
 
-    return new_room
+    # return new_room
+    return room_id, new_room
