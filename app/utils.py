@@ -4,6 +4,7 @@ from sensitive import ALI_GO_API_KEY, API_SERVER_URL
 
 
 def get_user_info(access_token: str):
+    print("get user info API called")
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(API_SERVER_URL, headers=headers)
     if response.status_code != 200:

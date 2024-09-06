@@ -12,6 +12,7 @@ router = APIRouter()
 
 @router.websocket("/ws/{access_token}")
 async def websocket_endpoint(websocket: WebSocket, access_token: str):
+
     await websocket.accept()
     try:
         user_info = get_user_info(access_token)
@@ -31,10 +32,13 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
     await websocket.send_json({"type": "total_count", "total_unread_count": total_count})
 
     try:
+
         while True:
+
             response = await websocket.receive_json()
             # print(response)
             action = response.get("action")
+            print(action)
             print("connection active")
 
             if action == "update_fcm_token":
@@ -50,58 +54,70 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                 manager.disconnect(identifier)
                 await websocket.close(code=1008, reason="Client disconnected")
 
-            if action == "join_room":
-                if is_retailer:
+            if action == "get_chat_rooms":
+                rooms = []
+                search_text = response.get("searchText", None)
+
+                search_field = "partner_code" if is_retailer else "agent_code"
+
+                rooms_ref = database.collection("chat_rooms").where(filter=FieldFilter(search_field, "==", identifier)).get()
+
+                for room_ref in rooms_ref:
+                    room_id = room_ref.id
+                    room = room_ref.to_dict()
+                    room["room_id"] = room_id
+                    rooms.append(room)
+
+                # search is available for admin only
+                if not is_retailer and search_text and search_text not in ["", " "] != "":
+                    rooms = [room for room in rooms if search_text.lower() in room["partner_name"].lower()]
+
+                await manager.send_json_to_identifier({"type": "chat_rooms", "rooms": rooms}, identifier)
+
+            if action == "get_room_info":
+                if is_retailer:  # partner
                     agent_code = response.get("agentCode")
                     partner_code = user_info.get("username")
                     partner_name = user_info.get("name")
 
-                    if not agent_code or not partner_code:
-                        manager.disconnect(identifier)
-                        return
+                else:  # admin
+                    agent_code = user_info.get("agent_code")
+                    partner_code = response.get("partnerCode", None)
+                    partner_name = response.get("partnerName", None)
 
-                    chat_rooms_ref = (
-                        database.collection("chat_rooms")
-                        .where(filter=FieldFilter("partner_code", "==", partner_code))
-                        .where(filter=FieldFilter("agent_code", "==", agent_code))
-                        .limit(1)
-                        .get()
-                    )
+                if not agent_code or not partner_code:
+                    manager.disconnect(identifier)
+                    return
 
-                    if len(chat_rooms_ref) > 0:
-                        room_id = chat_rooms_ref[0].id
+                chat_rooms_ref = (
+                    database.collection("chat_rooms")
+                    .where(filter=FieldFilter("partner_code", "==", partner_code))
+                    .where(filter=FieldFilter("agent_code", "==", agent_code))
+                    .limit(1)
+                    .get()
+                )
 
-                    # creating or updating a room if room not found
-                    else:
-                        room_id = await add_new_room(agent_code=agent_code, partner_code=partner_code, partner_name=partner_name)
+                if len(chat_rooms_ref) > 0:
+                    # room_id = chat_rooms_ref[0].id
+                    room_info = chat_rooms_ref[0].to_dict()
 
+                # creating a room if room not found
                 else:
-                    print("join room called")
-                    room_id = response.get("roomId", None)
-                    # if room_id not provided, create a new room
-                    if room_id is None:
-                        partner_code = response.get("partnerCode", None)
-                        partner_name = response.get("partnerName", None)
+                    room_info = await add_new_room(agent_code=agent_code, partner_code=partner_code, partner_name=partner_name)
 
-                        # if roomid is None, check if parterCode has cahtroom with agent_code
-                        chat_rooms_ref = (
-                            database.collection("chat_rooms")
-                            .where(filter=FieldFilter("partner_code", "==", partner_code))
-                            .where(filter=FieldFilter("agent_code", "==", identifier))
-                            .limit(1)
-                            .get()
-                        )
+                # print(room_info.to_dict())
 
-                        if len(chat_rooms_ref) > 0:
-                            room_id = chat_rooms_ref[0].id
-                        else:
-                            room_id = await add_new_room(agent_code=identifier, partner_code=partner_code, partner_name=partner_name)
+                await websocket.send_json({"type": "room_info", "room_info": room_info})
+
+            if action == "join_room":
+                room_id = response.get("roomId", None)
 
                 chats = get_room_chats(room_id)
-                await websocket.send_json({"type": "chats", "chats": chats, "room_id": room_id})
+                await websocket.send_json({"type": "room_chats", "chats": chats, "room_id": room_id})
 
             if action == "reset_room_unread_count":
                 room_id = response.get("roomId")
+
                 print(room_id)
 
                 chat_room_ref = database.collection("chat_rooms").document(room_id)
@@ -208,27 +224,15 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                                     chat_room_id=room_id,
                                 )
 
-            # if admin
-            if action == "get_chat_rooms":
-                rooms = []
-                search_text = response.get("searchText", None)
-
-                rooms_ref = database.collection("chat_rooms").where(filter=FieldFilter("agent_code", "==", identifier)).get()
-
-                for room_ref in rooms_ref:
-                    room_id = room_ref.id
-                    room = room_ref.to_dict()
-                    room["room_id"] = room_id
-                    rooms.append(room)
-
-                if search_text and search_text not in ["", " "] != "":
-                    rooms = [room for room in rooms if search_text.lower() in room["partner_name"].lower()]
-
-                await manager.send_json_to_identifier({"type": "chat_rooms", "rooms": rooms}, identifier)
-
     except WebSocketDisconnect:
-        manager.disconnect(websocket, identifier)
-        # await manager.broadcast(f"User {user_info['name']} left the chat")
+        print(f"WebSocket disconnected for {identifier}")
+    except Exception as e:
+        print(f"Error in websocket: {str(e)}")
+        await websocket.send_json({"type": "error", "message": "Internal server error"})
+    finally:
+        if identifier:
+            manager.disconnect(websocket, identifier)
+        await websocket.close()
 
 
 def get_room_chats(room_id: str):
@@ -291,4 +295,4 @@ async def add_new_room(agent_code: str, partner_code: str, partner_name: str = N
     await manager.send_json_to_identifier(content={"type": "room_added", "new_room": new_room}, identifier=partner_code)
     await manager.send_json_to_identifier(content={"type": "room_added", "new_room": new_room}, identifier=agent_code)
 
-    return room_id
+    return new_room
