@@ -13,6 +13,9 @@ router = APIRouter()
 @router.websocket("/ws/{access_token}")
 async def websocket_endpoint(websocket: WebSocket, access_token: str):
 
+    if access_token is None:
+        return
+
     await websocket.accept()
     try:
         user_info = get_user_info(access_token)
