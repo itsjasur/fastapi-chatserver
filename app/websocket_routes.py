@@ -7,7 +7,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from firebase_admin import firestore
 import datetime
 import sys
-
+from starlette.websockets import WebSocketState
 
 router = APIRouter()
 
@@ -240,7 +240,9 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
     finally:
         if identifier:
             manager.disconnect(websocket, identifier)
-        await websocket.close()
+        # await websocket.close()
+        if not websocket.client_state == WebSocketState.DISCONNECTED:
+            await websocket.close()
 
 
 def get_room_chats(room_id: str):
