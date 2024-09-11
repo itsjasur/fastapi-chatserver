@@ -15,8 +15,7 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
     await websocket.accept()
 
     if access_token is None or access_token == "null" or access_token == "":
-
-        raise WebSocketDisconnect
+        raise Exception("Access token invalid error")
 
     try:
         user_info = get_user_info(access_token)
