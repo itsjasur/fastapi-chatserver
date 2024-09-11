@@ -13,8 +13,8 @@ router = APIRouter()
 @router.websocket("/ws/{access_token}")
 async def websocket_endpoint(websocket: WebSocket, access_token: str):
 
-    if access_token is None:
-        return
+    if access_token is None or access_token == "null" or access_token == "":
+        return "Error 7834"
 
     await websocket.accept()
     try:
@@ -35,7 +35,6 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
     await websocket.send_json({"type": "total_count", "total_unread_count": total_count})
 
     try:
-
         while True:
 
             response = await websocket.receive_json()
