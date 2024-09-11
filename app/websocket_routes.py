@@ -12,11 +12,12 @@ router = APIRouter()
 
 @router.websocket("/ws/{access_token}")
 async def websocket_endpoint(websocket: WebSocket, access_token: str):
+    await websocket.accept()
 
     if access_token is None or access_token == "null" or access_token == "":
-        return "Error 7834"
 
-    await websocket.accept()
+        raise WebSocketDisconnect
+
     try:
         user_info = get_user_info(access_token)
         is_retailer = user_info["is_retailer"]
