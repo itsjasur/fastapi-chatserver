@@ -1,10 +1,13 @@
 import requests
 from firebase_admin import messaging
 from sensitive import ALI_GO_API_KEY, API_SERVER_URL
+import sys
 
 
 def get_user_info(access_token: str):
     print("get user info API called")
+    sys.stdout.flush()
+
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(API_SERVER_URL, headers=headers)
     if response.status_code != 200:
