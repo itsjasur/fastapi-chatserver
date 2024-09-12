@@ -44,7 +44,7 @@ async def get_room_info(request: Request):
 
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(..., max_size=1024 * 1024 * 10)):
     if not file.filename:
         raise HTTPException(status_code=400, detail="File has no filename")
 
