@@ -169,9 +169,16 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                     "receiver": agent_code if is_retailer else partner_code,
                     "is_retailer": is_retailer,
                     "timestamp": datetime.datetime.now(datetime.timezone.utc),
+                    "sender_agent_info": None,
                     "text": text,
                     "attachment_paths": attachment_paths,
                 }
+
+                if is_retailer:
+                    new_chat["sender_agent_info"] = {
+                        "sender_agent_code": user_info["username"],
+                        "sender_agent_name": user_info["name"],
+                    }
 
                 database.collection("chats").add(new_chat)
                 new_chat["timestamp"] = new_chat["timestamp"].isoformat()
