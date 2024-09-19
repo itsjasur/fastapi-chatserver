@@ -174,10 +174,10 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                     "attachment_paths": attachment_paths,
                 }
 
-                if is_retailer:
+                if not is_retailer:
                     new_chat["sender_agent_info"] = {
-                        "sender_agent_code": user_info["username"],
-                        "sender_agent_name": user_info["name"],
+                        "code": user_info["username"],
+                        "name": user_info["name"],
                     }
 
                 database.collection("chats").add(new_chat)
