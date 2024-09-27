@@ -1,4 +1,5 @@
 # app/api/endpoints.py
+import datetime
 from fastapi import APIRouter, Request
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
@@ -8,7 +9,7 @@ from app.utils import get_user_info, send_single_sms
 from firebase_instance import database, bucket
 from firebase_admin import messaging
 from google.cloud.firestore_v1.base_query import FieldFilter
-
+from firebase_admin import firestore
 
 router = APIRouter()
 
@@ -196,3 +197,51 @@ def send_multiple_notifications(fcm_tokens, title, body, chat_room_id):
         return f"Successfully sent messages: {response.success_count} successful, {response.failure_count} failed"
     except Exception as e:
         return f"Error sending messages: {e}"
+
+
+@router.post("/save-html-string")
+async def save_html_string(request: Request):
+    try:
+        data = await request.json()
+
+        id = data.get("id")
+        html_string = data.get("htmlString")
+        title = data.get("title", "")
+        creator = data.get("creator", "")
+
+        if not html_string:
+            raise HTTPException(status_code=400, detail="HTML string is required")
+
+        html_data = {
+            "title": title,
+            "creator": creator,
+            "content": html_string,
+            "updatedAt": datetime.datetime.now(datetime.timezone.utc),
+            "timestamp": firestore.SERVER_TIMESTAMP,
+        }
+
+        if id:
+            # Update existing document
+            html_data_ref = database.collection("htmls").document(id)
+            html_data_ref.update(html_data)
+            message = "HTML string updated successfully"
+        else:
+            # Create new document
+            html_data_ref = database.collection("htmls").document()
+            html_data["id"] = html_data_ref.id
+            html_data_ref.set(html_data)
+            message = "New HTML string document created successfully"
+
+        return JSONResponse(
+            content={"message": message, "success": True, "id": html_data_ref.id},
+            status_code=200,
+        )
+
+    except Exception as e:
+        return JSONResponse(
+            content={
+                "message": f"HTML string saving failed: {str(e)}",
+                "success": False,
+            },
+            status_code=500,
+        )

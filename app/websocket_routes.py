@@ -125,11 +125,8 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
 
             if action == "reset_room_unread_count":
                 room_id = response.get("roomId")
-
-                print(room_id)
-
+                # print(room_id)
                 chat_room_ref = database.collection("chat_rooms").document(room_id)
-
                 update_field = "partner_unread_count" if is_retailer else "agent_unread_count"
                 chat_room_ref.update({update_field: 0})
 
