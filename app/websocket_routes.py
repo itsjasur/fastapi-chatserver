@@ -24,7 +24,7 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
 
         user_info = get_user_info(access_token)
         is_retailer = user_info["is_retailer"]
-        print(user_info)
+        # print(user_info)
         sys.stdout.flush()
     # print(user_info)
 
@@ -44,10 +44,10 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
         while True:
 
             response = await websocket.receive_json()
-            # print(response)
             action = response.get("action")
-            print(action)
-            print("connection active")
+            # print(response)
+            # print(action)
+            # print("connection active")
 
             if action == "update_fcm_token":
                 print("update_fcm_token called!")

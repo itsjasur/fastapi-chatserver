@@ -1,3 +1,4 @@
+import datetime
 import requests
 from firebase_admin import messaging
 from sensitive import ALI_GO_API_KEY, API_SERVER_URL
@@ -94,3 +95,14 @@ def send_single_sms(receiver_phone_number, title, message):
 
     send_response = requests.post(send_url, data=sms_data)
     print(send_response.json())
+
+
+def format_date(date):
+    try:
+        if date is None:
+            return None
+        return date.strftime("%Y-%m-%d %H:%M")
+
+    except Exception as e:
+        print(f"Error formatting date: {e}")
+        return None

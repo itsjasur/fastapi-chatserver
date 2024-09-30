@@ -1,15 +1,13 @@
 # app/api/endpoints.py
-import datetime
 from fastapi import APIRouter, Request
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 import uuid
 from app.models import SMSData
-from app.utils import get_user_info, send_single_sms
+from app.utils import send_single_sms
 from firebase_instance import database, bucket
 from firebase_admin import messaging
 from google.cloud.firestore_v1.base_query import FieldFilter
-from firebase_admin import firestore
 
 router = APIRouter()
 
@@ -19,29 +17,29 @@ async def root():
     return {"message": "Hi there"}
 
 
-@router.post("/get-room-count")
-async def get_room_info(request: Request):
-    data = await request.json()
-    access_token = data["accessToken"]
-    agent_code = data["agentCode"]
+# @router.post("/get-room-count")
+# async def get_room_info(request: Request):
+#     data = await request.json()
+#     access_token = data["accessToken"]
+#     agent_code = data["agentCode"]
 
-    user_info = get_user_info(access_token)
-    partner_code = user_info["username"]
+#     user_info = get_user_info(access_token)
+#     partner_code = user_info["username"]
 
-    if agent_code is not None and partner_code is not None:
-        chat_rooms_ref = (
-            database.collection("chat_rooms")
-            .where(filter=FieldFilter("partner_code", "==", partner_code))
-            .where(filter=FieldFilter("agent_code", "==", agent_code))
-            .limit(1)
-            .get()
-        )
+#     if agent_code is not None and partner_code is not None:
+#         chat_rooms_ref = (
+#             database.collection("chat_rooms")
+#             .where(filter=FieldFilter("partner_code", "==", partner_code))
+#             .where(filter=FieldFilter("agent_code", "==", agent_code))
+#             .limit(1)
+#             .get()
+#         )
 
-        if len(chat_rooms_ref) > 0:
-            room_info = chat_rooms_ref[0].to_dict()
-            return JSONResponse(content={"unread_count": room_info["partner_unread_count"]})
+#         if len(chat_rooms_ref) > 0:
+#             room_info = chat_rooms_ref[0].to_dict()
+#             return JSONResponse(content={"unread_count": room_info["partner_unread_count"]})
 
-    return JSONResponse(content={"unread_count": 0})
+#     return JSONResponse(content={"unread_count": 0})
 
 
 @router.post("/upload")
@@ -197,51 +195,3 @@ def send_multiple_notifications(fcm_tokens, title, body, chat_room_id):
         return f"Successfully sent messages: {response.success_count} successful, {response.failure_count} failed"
     except Exception as e:
         return f"Error sending messages: {e}"
-
-
-@router.post("/save-html-string")
-async def save_html_string(request: Request):
-    try:
-        data = await request.json()
-
-        id = data.get("id")
-        html_string = data.get("htmlString")
-        title = data.get("title", "")
-        creator = data.get("creator", "")
-
-        if not html_string:
-            raise HTTPException(status_code=400, detail="HTML string is required")
-
-        html_data = {
-            "title": title,
-            "creator": creator,
-            "content": html_string,
-            "updatedAt": datetime.datetime.now(datetime.timezone.utc),
-            "timestamp": firestore.SERVER_TIMESTAMP,
-        }
-
-        if id:
-            # Update existing document
-            html_data_ref = database.collection("htmls").document(id)
-            html_data_ref.update(html_data)
-            message = "HTML string updated successfully"
-        else:
-            # Create new document
-            html_data_ref = database.collection("htmls").document()
-            html_data["id"] = html_data_ref.id
-            html_data_ref.set(html_data)
-            message = "New HTML string document created successfully"
-
-        return JSONResponse(
-            content={"message": message, "success": True, "id": html_data_ref.id},
-            status_code=200,
-        )
-
-    except Exception as e:
-        return JSONResponse(
-            content={
-                "message": f"HTML string saving failed: {str(e)}",
-                "success": False,
-            },
-            status_code=500,
-        )
