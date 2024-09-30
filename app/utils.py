@@ -1,4 +1,5 @@
-import datetime
+from datetime import datetime
+
 import requests
 from firebase_admin import messaging
 from sensitive import ALI_GO_API_KEY, API_SERVER_URL
@@ -101,7 +102,7 @@ def format_date(date):
     try:
         if date is None:
             return None
-        return date.strftime("%Y-%m-%d %H:%M")
+        return date.strftime("%Y-%m-%d %I:%M:%S")
 
     except Exception as e:
         print(f"Error formatting date: {e}")

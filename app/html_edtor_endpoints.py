@@ -7,27 +7,38 @@ import uuid
 from app.utils import format_date, get_user_info
 from firebase_instance import database, bucket
 from google.cloud.firestore_v1.base_query import FieldFilter
-
+from firebase_admin import firestore
 
 router = APIRouter()
 
 
 @router.post("/get-htmls")
 async def get_htmls(request: Request):
-
     try:
         data = await request.json()
         page_number = data.get("pageNumber", 1)
         per_page = data.get("perPage", 10)
 
-        collection_ref = database.collection("htmls").limit(per_page).offset(page_number - 1).get()
+        collection_ref = (
+            database.collection("htmls")
+            .limit(per_page)
+            .offset((page_number - 1) * per_page)
+            .order_by("updatedAt", direction=firestore.Query.ASCENDING)
+            .get()
+        )
         htmls = []
         total_count = len(database.collection("htmls").get())
 
+        print(collection_ref[0].to_dict()["createdAt"])
+
+        num = (page_number - 1) * per_page
+
         for doc_ref in collection_ref:
+            num = num + 1
             html = doc_ref.to_dict()
             html["updatedAt"] = format_date(html["updatedAt"])
             html["createdAt"] = format_date(html["createdAt"])
+            html["num"] = num
             htmls.append(html)
 
         return JSONResponse(content={"htmls": htmls, "total_count": total_count}, status_code=200)
