@@ -23,7 +23,7 @@ async def get_htmls(request: Request):
             database.collection("htmls")
             .limit(per_page)
             .offset((page_number - 1) * per_page)
-            .order_by("updatedAt", direction=firestore.Query.ASCENDING)
+            .order_by("updatedAt", direction=firestore.Query.DESCENDING)
             .get()
         )
         htmls = []
@@ -69,15 +69,17 @@ async def save_html_string(request: Request):
         html_data = html_data_ref.get().to_dict()
 
         # print(f"AAAAA {html_data_ref.id}")
-        # print(html_data)
+        # BBBBBBBBBB 2024-09-30 10:17:19.601817+00:00
+        #  "updatedAt": datetime.datetime.now(datetime.timezone.utc),
+        # print(f"BBBBBBBBBB {datetime.datetime.now()}")
 
         new_html_content = {
             "id": html_data_ref.id,
             "title": title,
             "creator": user_name,
             "content": html_string,
-            "updatedAt": datetime.datetime.now(datetime.timezone.utc),
-            "createdAt": datetime.datetime.now(datetime.timezone.utc),
+            "updatedAt": datetime.datetime.now(),
+            "createdAt": datetime.datetime.now(),
             # "timestamp": firestore.SERVER_TIMESTAMP,
         }
 

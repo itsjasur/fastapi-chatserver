@@ -102,7 +102,7 @@ def format_date(date):
     try:
         if date is None:
             return None
-        return date.strftime("%Y-%m-%d %I:%M:%S")
+        return date.strftime("%Y-%m-%d %H:%M")
 
     except Exception as e:
         print(f"Error formatting date: {e}")

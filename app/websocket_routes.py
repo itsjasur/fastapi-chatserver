@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, WebSocket
 from fastapi.websockets import WebSocketDisconnect
 from websocket_manager import manager
-from app.utils import get_user_info, send_multiple_notifications
+from app.utils import format_date, get_user_info, send_multiple_notifications
 from firebase_instance import database
 from google.cloud.firestore_v1.base_query import FieldFilter
 from firebase_admin import firestore
@@ -165,7 +165,8 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                     "sender": partner_code if is_retailer else agent_code,
                     "receiver": agent_code if is_retailer else partner_code,
                     "is_retailer": is_retailer,
-                    "timestamp": datetime.datetime.now(datetime.timezone.utc),
+                    # "timestamp": datetime.datetime.now(datetime.timezone.utc),
+                    "timestamp": datetime.datetime.now(),
                     "sender_agent_info": None,
                     "text": text,
                     "attachment_paths": attachment_paths,
@@ -178,7 +179,7 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                     }
 
                 database.collection("chats").add(new_chat)
-                new_chat["timestamp"] = new_chat["timestamp"].isoformat()
+                new_chat["timestamp"] = format_date(new_chat["timestamp"])
 
                 # emitting new chat to both sender and receiver
                 await manager.send_json_to_identifier(content={"type": "new_chat", "new_chat": new_chat}, identifier=partner_code)
@@ -262,7 +263,7 @@ def get_room_chats(room_id: str):
         chat_id = chat_ref.id
         chat = chat_ref.to_dict()
         chat["chat_id"] = chat_id  # chat.id is being added as dict param too
-        chat["timestamp"] = chat["timestamp"].isoformat()
+        chat["timestamp"] = format_date(chat["timestamp"])
         chats.append(chat)
 
     # print(chats)
