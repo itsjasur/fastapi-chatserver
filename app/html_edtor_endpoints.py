@@ -6,7 +6,8 @@ from fastapi.responses import JSONResponse
 import uuid
 from app.utils import format_date, get_user_info
 from firebase_instance import database, bucket
-from google.cloud.firestore_v1.base_query import FieldFilter
+
+# from google.cloud.firestore_v1.base_query import FieldFilter
 from firebase_admin import firestore
 
 router = APIRouter()
@@ -29,8 +30,6 @@ async def get_htmls(request: Request):
         htmls = []
         total_count = len(database.collection("htmls").get())
 
-        print(collection_ref[0].to_dict()["createdAt"])
-
         num = (page_number - 1) * per_page
 
         for doc_ref in collection_ref:
@@ -44,6 +43,7 @@ async def get_htmls(request: Request):
         return JSONResponse(content={"htmls": htmls, "total_count": total_count}, status_code=200)
 
     except Exception as e:
+
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
@@ -68,18 +68,12 @@ async def save_html_string(request: Request):
         html_data_ref = database.collection("htmls").document(id)
         html_data = html_data_ref.get().to_dict()
 
-        # print(f"AAAAA {html_data_ref.id}")
-        # BBBBBBBBBB 2024-09-30 10:17:19.601817+00:00
-        #  "updatedAt": datetime.datetime.now(datetime.timezone.utc),
-        # print(f"BBBBBBBBBB {datetime.datetime.now()}")
-
         new_html_content = {
             "id": html_data_ref.id,
             "title": title,
             "creator": user_name,
             "content": html_string,
             "updatedAt": datetime.datetime.now(),
-            "createdAt": datetime.datetime.now(),
             # "timestamp": firestore.SERVER_TIMESTAMP,
         }
 
@@ -95,6 +89,7 @@ async def save_html_string(request: Request):
 
         else:
             # create new document
+            new_html_content["createdAt"] = datetime.datetime.now()
             html_data_ref.set(new_html_content)
             message = "New HTML string document created successfully"
 
