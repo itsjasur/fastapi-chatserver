@@ -34,7 +34,19 @@ app.include_router(html_router)
 # this makes the project run as python main.py instead of uvicorn main:app --reload
 # uvicorn main:app --reload --host 0.0.0.0 --port 8080
 
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        workers=1,  # For WebSocket, multiple workers can cause issues
+        limit_concurrency=100,  # Optional: explicitly limit concurrent connections
+        backlog=100,  # Connection queue size
+    )
