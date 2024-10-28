@@ -39,14 +39,20 @@ app.include_router(html_router)
 #     uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
-if __name__ == "__main__":
-    import uvicorn
+import uvicorn
 
+
+if __name__ == "__main__":
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=8000,
-        workers=1,  # For WebSocket, multiple workers can cause issues
-        limit_concurrency=100,  # Optional: explicitly limit concurrent connections
-        backlog=100,  # Connection queue size
+        workers=1,  # Stick to 1 worker for single CPU
+        limit_concurrency=500,  # Start with this limit
+        backlog=100,
+        loop="uvloop",  # Use uvloop for better performance
+        http="httptools",  # Faster HTTP parsing
+        ws_max_size=16777216,  # 16MB max WebSocket message size
+        ws_ping_interval=20,  # Keep connections alive
+        ws_ping_timeout=30,
     )
