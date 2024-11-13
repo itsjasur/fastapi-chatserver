@@ -195,3 +195,23 @@ def send_multiple_notifications(fcm_tokens, title, body, chat_room_id):
         return f"Successfully sent messages: {response.success_count} successful, {response.failure_count} failed"
     except Exception as e:
         return f"Error sending messages: {e}"
+
+
+# from enum import Enum
+
+
+# class ModelName(str, Enum):
+#     alexnet = "alexnet"
+#     resnet = "resnet"
+#     lenet = "lenet"
+
+
+# @router.get("/models/{model_name}")
+# async def get_model(model_name: ModelName):
+#     if model_name is ModelName.alexnet:
+#         return {"model_name": model_name, "message": "Deep Learning FTW!"}
+
+#     if model_name.value == "lenet":
+#         return {"model_name": model_name, "message": "LeCNN all the images"}
+
+#     return {"model_name": model_name, "message": "Have some residuals"}

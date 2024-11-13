@@ -237,17 +237,27 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                                     chat_room_id=room_id,
                                 )
 
-    except WebSocketDisconnect:
-        print(f"WebSocket disconnected for {identifier}")
-    except Exception as e:
-        print(f"Error in websocket: {str(e)}")
-        await websocket.send_json({"type": "error", "message": "Internal server error"})
+    # except WebSocketDisconnect:
+    #     print(f"WebSocket disconnected for {identifier}")
+    # except Exception as e:
+    #     print(f"Error in websocket: {str(e)}")
+    #     await websocket.send_json({"type": "error", "message": "Internal server error"})
+    # finally:
+    #     if identifier:
+    #         manager.disconnect(websocket, identifier)
+    #     # await websocket.close()
+    #     if not websocket.client_state == WebSocketState.DISCONNECTED:
+    #         await websocket.close()
+
     finally:
         if identifier:
             manager.disconnect(websocket, identifier)
-        # await websocket.close()
-        if not websocket.client_state == WebSocketState.DISCONNECTED:
-            await websocket.close()
+        try:
+            if websocket.client_state != WebSocketState.DISCONNECTED and websocket.client_state != WebSocketState.CLOSING:
+                await websocket.close()
+        except RuntimeError:
+            # Connection already closed, we can safely ignore this
+            pass
 
 
 def get_room_chats(room_id: str):
