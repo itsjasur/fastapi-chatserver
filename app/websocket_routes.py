@@ -1,6 +1,6 @@
 import datetime
 from typing import Optional
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException
+from fastapi import APIRouter, WebSocket
 from app.chat_endpoints import send_multiple_notifications
 from websocket_manager import manager
 from app.utils import format_date, get_user_info
@@ -37,7 +37,6 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
         return
 
     try:
-
         # Connect to manager
         await manager.connect(websocket, identifier)
 
@@ -50,6 +49,7 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
             response = await websocket.receive_json()
             action = response.get("action")
             print(action)
+            sys.stdout.flush()
 
             # disconnnect emitted from client side
             if action == "disconnect":
@@ -238,11 +238,11 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
 
     except Exception as e:
         print(e)
+        sys.stdout.flush()
         await cleanup_connection(websocket, identifier)
         return
 
     finally:
-        sys.stdout.flush()
         await cleanup_connection(websocket, identifier)
 
 
@@ -279,6 +279,7 @@ def get_total_unread_count(is_retailer: bool, identifier: str):
         total_unread_count += room.get(find_field, 0)
 
     print(total_unread_count)
+    sys.stdout.flush()
 
     return total_unread_count
 
