@@ -1,66 +1,65 @@
-from fastapi import APIRouter, HTTPException, WebSocket
-from fastapi.websockets import WebSocketDisconnect
+import datetime
+from typing import Optional
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException
+from app.chat_endpoints import send_multiple_notifications
 from websocket_manager import manager
-from app.utils import format_date, get_user_info, send_multiple_notifications
+from app.utils import format_date, get_user_info
 from firebase_instance import database
 from google.cloud.firestore_v1.base_query import FieldFilter
 from firebase_admin import firestore
-import datetime
 import sys
-from starlette.websockets import WebSocketState
+
 
 router = APIRouter()
 
 
 @router.websocket("/ws/{access_token}")
 async def websocket_endpoint(websocket: WebSocket, access_token: str):
-    await websocket.accept()
+
+    identifier = None
 
     try:
-        if access_token is None or access_token == "null" or access_token == "":
-            print("Access token invalid error")
-            sys.stdout.flush()
-            raise Exception("Access token invalid error")
+        # Validate access token before accepting connection
+        if not access_token or access_token == "null":
+            await websocket.close(code="Token issue")
+            return
 
+        # Get user info before accepting connection
         user_info = get_user_info(access_token)
         is_retailer = user_info["is_retailer"]
-        # print(user_info)
-        sys.stdout.flush()
-    # print(user_info)
+        identifier = user_info["username"] if is_retailer else user_info["agent_code"]
+
+        await websocket.accept()
 
     except Exception as e:
         print(e)
         await websocket.close(code=1008, reason=str(e))
         return
 
-    identifier = user_info["username"] if is_retailer else user_info["agent_code"]
-    await manager.connect(websocket, identifier)
-
-    # sending total count when initial connectin established
-    total_count = get_total_unread_count(is_retailer, identifier)
-    await websocket.send_json({"type": "total_count", "total_unread_count": total_count})
-
     try:
+
+        # Connect to manager
+        await manager.connect(websocket, identifier)
+
+        # sending total count when initial connection established
+        total_count = get_total_unread_count(is_retailer, identifier)
+        await websocket.send_json({"type": "total_count", "total_unread_count": total_count})
+
         while True:
 
             response = await websocket.receive_json()
             action = response.get("action")
-            # print(response)
-            # print(action)
-            # print("connection active")
-
-            if action == "update_fcm_token":
-                print("update_fcm_token called!")
-                fcm_token = response.get("fcmToken", None)
-                agent_ref = database.collection("users").document(identifier)
-                agent_ref.set({"fcm_tokens": firestore.ArrayUnion([fcm_token])}, merge=True)
-
-                print(fcm_token)
+            print(action)
 
             # disconnnect emitted from client side
             if action == "disconnect":
-                manager.disconnect(identifier)
-                await websocket.close(code=1008, reason="Client disconnected")
+                await cleanup_connection(websocket, identifier)
+                return
+
+            if action == "update_fcm_token":
+                fcm_token = response.get("fcmToken", None)
+                agent_ref = database.collection("users").document(identifier)
+                agent_ref.set({"fcm_tokens": firestore.ArrayUnion([fcm_token])}, merge=True)
 
             if action == "get_chat_rooms":
                 rooms = []
@@ -237,27 +236,14 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
                                     chat_room_id=room_id,
                                 )
 
-    # except WebSocketDisconnect:
-    #     print(f"WebSocket disconnected for {identifier}")
-    # except Exception as e:
-    #     print(f"Error in websocket: {str(e)}")
-    #     await websocket.send_json({"type": "error", "message": "Internal server error"})
-    # finally:
-    #     if identifier:
-    #         manager.disconnect(websocket, identifier)
-    #     # await websocket.close()
-    #     if not websocket.client_state == WebSocketState.DISCONNECTED:
-    #         await websocket.close()
+    except Exception as e:
+        print(e)
+        await cleanup_connection(websocket, identifier)
+        return
 
     finally:
-        if identifier:
-            manager.disconnect(websocket, identifier)
-        try:
-            if websocket.client_state != WebSocketState.DISCONNECTED and websocket.client_state != WebSocketState.CLOSING:
-                await websocket.close()
-        except RuntimeError:
-            # Connection already closed, we can safely ignore this
-            pass
+        sys.stdout.flush()
+        await cleanup_connection(websocket, identifier)
 
 
 def get_room_chats(room_id: str):
@@ -322,3 +308,15 @@ async def add_new_room(agent_code: str, partner_code: str, partner_name: str = N
 
     # return new_room
     return room_id, new_room
+
+
+async def cleanup_connection(websocket: WebSocket, identifier: Optional[str] = None):
+    """Helper function to ensure consistent cleanup of WebSocket connections"""
+    try:
+        if identifier:
+            manager.disconnect(websocket, identifier)  # Updated to pass both websocket and identifier
+        if not websocket.client_state.DISCONNECTED:
+            await websocket.close()
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
+        sys.stdout.flush()

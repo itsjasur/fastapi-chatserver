@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import requests
 from firebase_admin import messaging
 from sensitive import ALI_GO_API_KEY, API_SERVER_URL
