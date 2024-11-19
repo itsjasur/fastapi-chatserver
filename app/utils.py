@@ -1,3 +1,4 @@
+import datetime
 import requests
 from firebase_admin import messaging
 from sensitive import ALI_GO_API_KEY, API_SERVER_URL
@@ -8,26 +9,28 @@ def get_user_info(access_token: str):
     print("get user info API called")
     sys.stdout.flush()
 
-    headers = {"Authorization": f"Bearer {access_token}"}
-    response = requests.get(API_SERVER_URL, headers=headers)
-    if response.status_code != 200:
-        raise ValueError(f"Authentication failed. Status code: {response.status_code}")
+    try:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        response = requests.get(API_SERVER_URL, headers=headers)
 
-    data = response.json()
-    info = data["data"]["info"]
+        data = response.json()
+        info = data["data"]["info"]
 
-    agent_codes = info.get("agent_cd", [None])
-    agent_code = None
-    if agent_codes is not None and len(agent_codes) > 0:
-        agent_code = agent_codes[0]
+        agent_codes = info.get("agent_cd", [None])
+        agent_code = None
+        if agent_codes is not None and len(agent_codes) > 0:
+            agent_code = agent_codes[0]
 
-    return {
-        "username": info["username"],
-        "roles": info.get("strRoles", []),
-        "name": info["name"],
-        "agent_code": agent_code,
-        "is_retailer": "ROLE_AGENCY" in info.get("strRoles", []),
-    }
+        return {
+            "username": info["username"],
+            "roles": info.get("strRoles", []),
+            "name": info["name"],
+            "agent_code": agent_code,
+            "is_retailer": "ROLE_AGENCY" in info.get("strRoles", []),
+        }
+    except Exception as e:
+        print("auth error AAAAA")
+        raise ValueError(f"유효하지 않거나 만료된 인증 토큰. Reason: {str(e)}")
 
     # return {
     #     "username": "SM00001",
@@ -96,12 +99,25 @@ def send_single_sms(receiver_phone_number, title, message):
     print(send_response.json())
 
 
-def format_date(date):
+def format_date(date: datetime.datetime) -> str | None:
+    # datetime.datetime.fromtimestamp(html.get("createdAt").timestamp())
+
     try:
         if date is None:
             return None
         return date.strftime("%Y-%m-%d %H:%M")
 
     except Exception as e:
-        print(f"Error formatting date: {e}")
+        print(f"Error formatting datetime to str: {e}")
+        return None
+
+
+def to_datetime(date: str) -> datetime:
+    try:
+        if date is None:
+            return None
+        return (datetime.datetime.strptime(date, "%Y-%m"),)
+
+    except Exception as e:
+        print(f"Error formatting to datetime: {e}")
         return None

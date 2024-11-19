@@ -3,7 +3,8 @@ from fastapi import APIRouter, Request
 from fastapi import File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 import uuid
-from app.models import SMSData
+
+from pydantic import BaseModel
 from app.utils import send_single_sms
 from firebase_instance import database, bucket
 from firebase_admin import messaging
@@ -67,6 +68,14 @@ async def upload_file(file: UploadFile = File(..., max_size=1024 * 1024 * 10)):
 
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+class SMSData(BaseModel):
+    receiver_phone_number: str
+    message: str
+    title: str
+    partner_code: str
+    base_url: str
 
 
 @router.post("/send-single-sms")

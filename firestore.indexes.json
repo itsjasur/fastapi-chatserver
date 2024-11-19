@@ -1,0 +1,52 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "chats",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "room_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+
+    {
+      "collectionGroup": "htmls",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "carrierType", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "htmls",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "selectedAgent", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "htmls",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "selectedMvnos", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "htmls",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "policyDateMonth", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
