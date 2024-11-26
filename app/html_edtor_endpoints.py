@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 class HtmlsModel(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None
     carrier_type: Optional[str] = None
     selected_agent: Optional[str] = None
     selected_mvno: Optional[str] = None
@@ -31,6 +31,9 @@ class HtmlsModel(BaseModel):
 
 @router.post("/get-htmls")
 async def get_htmls(data: HtmlsModel):
+
+    print(data.model_dump())
+    sys.stdout.flush()
 
     # print("get htmls endpoint called")
     try:
