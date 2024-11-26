@@ -6,27 +6,14 @@ from fastapi import APIRouter, Request
 from fastapi import File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 import uuid
-
-from pydantic import BaseModel, field_validator
-from app.utils import format_date, get_user_info, to_datetime
+from pydantic import BaseModel
+from app.utils import format_date, get_user_info
 from firebase_instance import database, bucket
-
-# from google.cloud.firestore_v1.base_query import FieldFilter
 from firebase_admin import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 
 router = APIRouter()
-
-
-# class HtmlsModel(BaseModel):
-#     access_token: Optional[str] = None
-#     carrier_type: Optional[str] = None
-#     selected_agent: Optional[str] = None
-#     selected_mvno: Optional[str] = None
-#     policy_date_month: Optional[str] = None
-#     per_page: int
-#     page_number: int
 
 
 class HtmlsModel(BaseModel):
@@ -38,13 +25,6 @@ class HtmlsModel(BaseModel):
     per_page: Optional[int] = 100
     page_number: Optional[int] = 1
 
-    # Validate per_page and page_number
-    @field_validator("per_page", "page_number")
-    def validate_numbers(cls, v):
-        if not isinstance(v, (int, float)):
-            raise ValueError("Must be a number")
-        return int(v)
-
 
 @router.post("/get-htmls")
 async def get_htmls(data: HtmlsModel):
@@ -53,56 +33,54 @@ async def get_htmls(data: HtmlsModel):
     sys.stdout.flush()
 
     try:
-
         # get_user_info(data.access_token)  # used in production
 
         # base query
-        # query = database.collection("htmls")
+        query = database.collection("htmls")
 
-        # if data.carrier_type and data.carrier_type.strip():
-        #     query = query.where(filter=FieldFilter("carrierType", "==", data.carrier_type))
+        if data.carrier_type and data.carrier_type.strip():
+            query = query.where(filter=FieldFilter("carrierType", "==", data.carrier_type))
 
-        # if data.selected_agent and data.selected_agent.strip():
-        #     query = query.where(filter=FieldFilter("selectedAgent", "==", data.selected_agent))
+        if data.selected_agent and data.selected_agent.strip():
+            query = query.where(filter=FieldFilter("selectedAgent", "==", data.selected_agent))
 
-        # if data.selected_mvno and data.selected_mvno.strip():
-        #     print("selectedMvno field called")
-        #     sys.stdout.flush()
-        #     # query = query.where(filter=FieldFilter("selectedMvnos", "array_contains_any", mvnos_to_check)) # this checks if any items given available
-        #     query = query.where(filter=FieldFilter("selectedMvnos", "array_contains", data.selected_mvno))
+        if data.selected_mvno and data.selected_mvno.strip():
+            print("selectedMvno field called")
+            sys.stdout.flush()
+            # query = query.where(filter=FieldFilter("selectedMvnos", "array_contains_any", mvnos_to_check)) # this checks if any items given available
+            query = query.where(filter=FieldFilter("selectedMvnos", "array_contains", data.selected_mvno))
 
-        # if data.policy_date_month and data.policy_date_month.strip():
-        #     print("policyMonth filter applied")
-        #     sys.stdout.flush()
-        #     query = query.where(filter=FieldFilter("policyDateMonth", "==", data.policy_date_month))
+        if data.policy_date_month and data.policy_date_month.strip():
+            print("policyMonth filter applied")
+            sys.stdout.flush()
+            query = query.where(filter=FieldFilter("policyDateMonth", "==", data.policy_date_month))
 
-        # # adds ordering before pagination
-        # query = query.order_by("createdAt", direction=firestore.Query.DESCENDING)
-        # total_count = query.count().get()[0][0].value
+        # adds ordering before pagination
+        query = query.order_by("createdAt", direction=firestore.Query.DESCENDING)
+        total_count = query.count().get()[0][0].value
 
-        # docs = query.limit(data.per_page).offset((data.page_number - 1) * data.per_page).get()
+        docs = query.limit(data.per_page).offset((data.page_number - 1) * data.per_page).get()
 
-        # # process results
-        # htmls = []
-        # num = (data.page_number - 1) * data.per_page
-        # for doc_ref in docs:
-        #     num = num + 1
-        #     html = doc_ref.to_dict()
-        #     html.update(
-        #         {
-        #             "updatedAt": format_date(html.get("updatedAt")),
-        #             "createdAt": format_date(html.get("createdAt")),
-        #             "policyDateMonth": html.get("policyDateMonth"),
-        #             "carrierType": html.get("carrierType"),
-        #             "selectedAgent": html.get("selectedAgent"),
-        #             "selectedMvnos": html.get("selectedMvnos"),
-        #             "num": num,
-        #         }
-        #     )
-        #     htmls.append(html)
+        # process results
+        htmls = []
+        num = (data.page_number - 1) * data.per_page
+        for doc_ref in docs:
+            num = num + 1
+            html = doc_ref.to_dict()
+            html.update(
+                {
+                    "updatedAt": format_date(html.get("updatedAt")),
+                    "createdAt": format_date(html.get("createdAt")),
+                    "policyDateMonth": html.get("policyDateMonth"),
+                    "carrierType": html.get("carrierType"),
+                    "selectedAgent": html.get("selectedAgent"),
+                    "selectedMvnos": html.get("selectedMvnos"),
+                    "num": num,
+                }
+            )
+            htmls.append(html)
 
-        # return JSONResponse(content={"htmls": htmls, "total_count": total_count}, status_code=200)
-        return JSONResponse(content={"htmls": [], "total_count": 0}, status_code=200)
+        return JSONResponse(content={"htmls": htmls, "total_count": total_count}, status_code=200)
 
     except Exception as e:
         print(e)
