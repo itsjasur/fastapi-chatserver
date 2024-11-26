@@ -12,3 +12,9 @@ chatserver/
 │       ├── __init__.py
 │       └── handlers.py
 └── socket_instance.py
+
+
+
+
+how to update indexes
+firebase deploy --only firestore:indexes --token "$FIREBASE_TOKEN" --project simpassplatform

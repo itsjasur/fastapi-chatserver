@@ -31,9 +31,9 @@ class HtmlsModel(BaseModel):
 @router.post("/get-htmls")
 async def get_htmls(data: HtmlsModel):
 
-    print("get htmls endpoint called")
+    # print("get htmls endpoint called")
     try:
-        get_user_info(data.access_token)  # used in production
+        # get_user_info(data.access_token)  # used in production
 
         # base query
         query = database.collection("htmls")
