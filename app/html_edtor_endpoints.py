@@ -1,5 +1,6 @@
 # app/api/endpoints.py
 import datetime
+import sys
 from typing import Optional
 from fastapi import APIRouter, Request
 from fastapi import File, UploadFile, HTTPException
@@ -79,6 +80,7 @@ async def get_htmls(data: HtmlsModel):
 
     except Exception as e:
         print(e)
+        sys.stdout.flush()
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
