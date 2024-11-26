@@ -80,8 +80,10 @@ async def get_htmls(data: HtmlsModel):
 
     except Exception as e:
         print(e)
-        sys.stdout.flush()
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+    finally:
+        sys.stdout.flush()
 
 
 class HtmlModel(BaseModel):
