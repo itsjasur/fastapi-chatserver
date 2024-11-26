@@ -7,7 +7,7 @@ from fastapi import File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 import uuid
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from app.utils import format_date, get_user_info, to_datetime
 from firebase_instance import database, bucket
 
@@ -19,6 +19,16 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 router = APIRouter()
 
 
+# class HtmlsModel(BaseModel):
+#     access_token: Optional[str] = None
+#     carrier_type: Optional[str] = None
+#     selected_agent: Optional[str] = None
+#     selected_mvno: Optional[str] = None
+#     policy_date_month: Optional[str] = None
+#     per_page: int
+#     page_number: int
+
+
 class HtmlsModel(BaseModel):
     access_token: Optional[str] = None
     carrier_type: Optional[str] = None
@@ -28,6 +38,13 @@ class HtmlsModel(BaseModel):
     per_page: int
     page_number: int
 
+    # Validate per_page and page_number
+    @field_validator("per_page", "page_number")
+    def validate_numbers(cls, v):
+        if not isinstance(v, (int, float)):
+            raise ValueError("Must be a number")
+        return int(v)
+
 
 @router.post("/get-htmls")
 async def get_htmls(data: HtmlsModel):
@@ -35,7 +52,6 @@ async def get_htmls(data: HtmlsModel):
     print(data.model_dump())
     sys.stdout.flush()
 
-    # print("get htmls endpoint called")
     try:
 
         # get_user_info(data.access_token)  # used in production
