@@ -49,7 +49,7 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
             response = await websocket.receive_json()
             action = response.get("action")
             print(action)
-            sys.stdout.flush()
+            # sys.stdout.flush()
 
             # disconnnect emitted from client side
             if action == "disconnect":
@@ -238,7 +238,7 @@ async def websocket_endpoint(websocket: WebSocket, access_token: str):
 
     except Exception as e:
         print(e)
-        sys.stdout.flush()
+        # sys.stdout.flush()
         await cleanup_connection(websocket, identifier)
         return
 
@@ -279,7 +279,7 @@ def get_total_unread_count(is_retailer: bool, identifier: str):
         total_unread_count += room.get(find_field, 0)
 
     print(total_unread_count)
-    sys.stdout.flush()
+    # sys.stdout.flush()
 
     return total_unread_count
 
@@ -320,4 +320,4 @@ async def cleanup_connection(websocket: WebSocket, identifier: Optional[str] = N
             await websocket.close()
     except Exception as e:
         print(f"Error during cleanup: {e}")
-        sys.stdout.flush()
+        # sys.stdout.flush()

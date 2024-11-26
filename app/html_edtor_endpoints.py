@@ -39,16 +39,21 @@ async def get_htmls(data: HtmlsModel):
         # base query
         query = database.collection("htmls")
 
-        if data.carrier_type:
+        if data.carrier_type and data.carrier_type.strip():
             query = query.where(filter=FieldFilter("carrierType", "==", data.carrier_type))
-        if data.selected_agent:
+
+        if data.selected_agent and data.selected_agent.strip():
             query = query.where(filter=FieldFilter("selectedAgent", "==", data.selected_agent))
-        if data.selected_mvno:
+
+        if data.selected_mvno and data.selected_mvno.strip():
             print("selectedMvno field called")
+            sys.stdout.flush()
             # query = query.where(filter=FieldFilter("selectedMvnos", "array_contains_any", mvnos_to_check)) # this checks if any items given available
             query = query.where(filter=FieldFilter("selectedMvnos", "array_contains", data.selected_mvno))
-        if data.policy_date_month:
+
+        if data.policy_date_month and data.policy_date_month.strip():
             print("policyMonth filter applied")
+            sys.stdout.flush()
             query = query.where(filter=FieldFilter("policyDateMonth", "==", data.policy_date_month))
 
         # adds ordering before pagination
@@ -80,6 +85,7 @@ async def get_htmls(data: HtmlsModel):
 
     except Exception as e:
         print(e)
+        sys.stdout.flush()
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
     finally:

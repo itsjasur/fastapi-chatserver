@@ -7,7 +7,7 @@ import sys
 
 def get_user_info(access_token: str):
     print("get user info API called")
-    sys.stdout.flush()
+    # sys.stdout.flush()
 
     try:
         headers = {"Authorization": f"Bearer {access_token}"}
