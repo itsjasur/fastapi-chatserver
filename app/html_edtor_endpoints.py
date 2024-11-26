@@ -37,54 +37,56 @@ async def get_htmls(data: HtmlsModel):
 
     # print("get htmls endpoint called")
     try:
+
         # get_user_info(data.access_token)  # used in production
 
         # base query
-        query = database.collection("htmls")
+        # query = database.collection("htmls")
 
-        if data.carrier_type and data.carrier_type.strip():
-            query = query.where(filter=FieldFilter("carrierType", "==", data.carrier_type))
+        # if data.carrier_type and data.carrier_type.strip():
+        #     query = query.where(filter=FieldFilter("carrierType", "==", data.carrier_type))
 
-        if data.selected_agent and data.selected_agent.strip():
-            query = query.where(filter=FieldFilter("selectedAgent", "==", data.selected_agent))
+        # if data.selected_agent and data.selected_agent.strip():
+        #     query = query.where(filter=FieldFilter("selectedAgent", "==", data.selected_agent))
 
-        if data.selected_mvno and data.selected_mvno.strip():
-            print("selectedMvno field called")
-            sys.stdout.flush()
-            # query = query.where(filter=FieldFilter("selectedMvnos", "array_contains_any", mvnos_to_check)) # this checks if any items given available
-            query = query.where(filter=FieldFilter("selectedMvnos", "array_contains", data.selected_mvno))
+        # if data.selected_mvno and data.selected_mvno.strip():
+        #     print("selectedMvno field called")
+        #     sys.stdout.flush()
+        #     # query = query.where(filter=FieldFilter("selectedMvnos", "array_contains_any", mvnos_to_check)) # this checks if any items given available
+        #     query = query.where(filter=FieldFilter("selectedMvnos", "array_contains", data.selected_mvno))
 
-        if data.policy_date_month and data.policy_date_month.strip():
-            print("policyMonth filter applied")
-            sys.stdout.flush()
-            query = query.where(filter=FieldFilter("policyDateMonth", "==", data.policy_date_month))
+        # if data.policy_date_month and data.policy_date_month.strip():
+        #     print("policyMonth filter applied")
+        #     sys.stdout.flush()
+        #     query = query.where(filter=FieldFilter("policyDateMonth", "==", data.policy_date_month))
 
-        # adds ordering before pagination
-        query = query.order_by("createdAt", direction=firestore.Query.DESCENDING)
-        total_count = query.count().get()[0][0].value
+        # # adds ordering before pagination
+        # query = query.order_by("createdAt", direction=firestore.Query.DESCENDING)
+        # total_count = query.count().get()[0][0].value
 
-        docs = query.limit(data.per_page).offset((data.page_number - 1) * data.per_page).get()
+        # docs = query.limit(data.per_page).offset((data.page_number - 1) * data.per_page).get()
 
-        # process results
-        htmls = []
-        num = (data.page_number - 1) * data.per_page
-        for doc_ref in docs:
-            num = num + 1
-            html = doc_ref.to_dict()
-            html.update(
-                {
-                    "updatedAt": format_date(html.get("updatedAt")),
-                    "createdAt": format_date(html.get("createdAt")),
-                    "policyDateMonth": html.get("policyDateMonth"),
-                    "carrierType": html.get("carrierType"),
-                    "selectedAgent": html.get("selectedAgent"),
-                    "selectedMvnos": html.get("selectedMvnos"),
-                    "num": num,
-                }
-            )
-            htmls.append(html)
+        # # process results
+        # htmls = []
+        # num = (data.page_number - 1) * data.per_page
+        # for doc_ref in docs:
+        #     num = num + 1
+        #     html = doc_ref.to_dict()
+        #     html.update(
+        #         {
+        #             "updatedAt": format_date(html.get("updatedAt")),
+        #             "createdAt": format_date(html.get("createdAt")),
+        #             "policyDateMonth": html.get("policyDateMonth"),
+        #             "carrierType": html.get("carrierType"),
+        #             "selectedAgent": html.get("selectedAgent"),
+        #             "selectedMvnos": html.get("selectedMvnos"),
+        #             "num": num,
+        #         }
+        #     )
+        #     htmls.append(html)
 
-        return JSONResponse(content={"htmls": htmls, "total_count": total_count}, status_code=200)
+        # return JSONResponse(content={"htmls": htmls, "total_count": total_count}, status_code=200)
+        return JSONResponse(content={"htmls": [], "total_count": 0}, status_code=200)
 
     except Exception as e:
         print(e)
