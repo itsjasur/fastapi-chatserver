@@ -35,8 +35,8 @@ class HtmlsModel(BaseModel):
     selected_agent: Optional[str] = None
     selected_mvno: Optional[str] = None
     policy_date_month: Optional[str] = None
-    per_page: int
-    page_number: int
+    per_page: Optional[int] = 100
+    page_number: Optional[int] = 1
 
     # Validate per_page and page_number
     @field_validator("per_page", "page_number")
