@@ -2,11 +2,14 @@
 
 import json
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import app.websocket_routes
 from app.chat_endpoints import router as api_router
 from app.websocket_routes import router as websocket_router
 from app.html_edtor_endpoints import router as html_router
+from app.order_usim_endpoints import router as usim_router
 
 
 app = FastAPI()
@@ -22,6 +25,14 @@ app.add_middleware(
 )
 
 
+# Add this exception handler to your FastAPI app
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    error_details = exc.errors()
+    print(f"Validation error details: {error_details}")  # This will show in your logs
+    return JSONResponse(status_code=422, content={"detail": error_details})
+
+
 # inclues API router
 app.include_router(api_router)
 
@@ -30,6 +41,9 @@ app.include_router(websocket_router)
 
 # html router
 app.include_router(html_router)
+
+# usim order router
+app.include_router(usim_router)
 
 # this makes the project run as python main.py instead of uvicorn main:app --reload
 # uvicorn main:app --reload --host 0.0.0.0 --port 8080
