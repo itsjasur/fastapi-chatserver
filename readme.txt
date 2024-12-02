@@ -17,4 +17,5 @@ chatserver/
 
 
 how to update indexes
+firebase deploy --only firestore:indexes --token "$FIREBASE_TOKEN" --project testsimpassplatform
 firebase deploy --only firestore:indexes --token "$FIREBASE_TOKEN" --project simpassplatform

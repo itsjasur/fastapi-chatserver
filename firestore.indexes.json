@@ -46,6 +46,14 @@
         { "fieldPath": "policyDateMonth", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "usim_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "username", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

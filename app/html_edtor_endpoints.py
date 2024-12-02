@@ -34,7 +34,6 @@ async def get_htmls(data: HtmlsModel):
 
     try:
         # get_user_info(data.access_token)  # used in production
-
         # base query
         query = database.collection("htmls")
 
