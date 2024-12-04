@@ -1,7 +1,7 @@
 # /main.py
 
 import json
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -25,11 +25,13 @@ app.add_middleware(
 )
 
 
-# Add this exception handler to your FastAPI app
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
-    error_details = exc.errors()
-    print(f"Validation error details: {error_details}")  # This will show in your logs
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    error_details = []
+    for error in exc.errors():
+        error_details.append({"loc": error["loc"], "msg": error["msg"], "type": error["type"]})
+
+    print(f"Validation error details: {error_details}")
     return JSONResponse(status_code=422, content={"detail": error_details})
 
 

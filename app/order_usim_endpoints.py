@@ -1,33 +1,30 @@
-import datetime
 import sys
 from typing import Optional
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from firebase_instance import database
 from app.utils import format_date, get_user_info
 from google.cloud.firestore_v1.base_query import FieldFilter
 from firebase_admin import firestore
-
-router = APIRouter()
-
-
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, field_validator
-from fastapi import HTTPException, APIRouter
 
 
 router = APIRouter()
-
 
 statuses = ["confirmed", "shipped", "delivered", "failed"]
 
 
 class OrderItem(BaseModel):
-    agent_code: str
-    carrier_type_code: str
-    mvno_code: str
-    usim_count: int
+    agent_code: str = Field(min_length=1)
+    carrier_type_code: str = Field(min_length=1)
+    mvno_code: str = Field(min_length=1)
+    usim_count: int = Field(gt=0)
+
+    @field_validator("agent_code", "carrier_type_code", "mvno_code")
+    def validate_fields(cls, v: str):
+        if not v.strip():
+            raise ValueError("Field cannot be empty")
+        return v.strip()
 
 
 class UsimOrderModel(BaseModel):
